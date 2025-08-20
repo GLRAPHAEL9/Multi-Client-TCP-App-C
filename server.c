@@ -31,3 +31,25 @@ void get_timestamp(char *buffer, size_t size) {
     struct tm *t = localtime(&now);
     strftime(buffer, size, "[%H:%M:%S]", t);
 }
+
+void send_message(char *message, int sender) {
+    char timestamp[20];
+    get_timestamp(timestamp, sizeof(timestamp));
+
+for (int i = 0; i <MAX_CLIENTS; i++) {
+    if (clients[i] != 0 && clients[i] !=sender) {
+        char colored_message[BUFFER_SIZE + 100];
+
+        // Applied Colours for Gabriel and Monique
+        if (strstr(message, "Gabriel:") == message || strstr(message, "Gabriel has") == message) {
+            snprintf(colored_message, sizeof(colored_message), "%s \033[1;34m%s\033[0m", timestamp, message); //Blue
+        } else if (strstr(message, "Monique:") == message || strstr(message, "Monique has") == message) {
+            snprint(colored_message, sizeof(colored_message), "%s \033[1,35m%s\033[0m", timestamp, message); //Purple
+        } else {
+            snprintf(colored_message, sizeof(colored_message), "%s %s", timestamp, message); //Default colour
+        }
+
+        send(clients[i], colored_message, strlen(colored_message), 0);
+    }
+}
+      
