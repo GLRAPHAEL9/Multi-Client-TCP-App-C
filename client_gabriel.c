@@ -17,3 +17,16 @@
 SOCKET sock;
 // Blue colored username (works in VS Code + Windows Terminal)
 char username[] = "\033[34mGabriel\033[0m";
+
+// Thread to continuously receive messages from server
+void receive_messages(void *arg) {
+    char buffer[BUFFER_SIZE];
+    int bytes_read;
+
+    while ((bytes_read = recv(sock, buffer, sizeof(buffer) - 1, 0)) > 0) {
+        buffer[bytes_read] = '\0';
+        printf("%s", buffer);  // Print incoming message
+        fflush(stdout);
+    }
+    _endthread();
+}
