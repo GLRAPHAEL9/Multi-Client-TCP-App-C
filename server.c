@@ -4,7 +4,15 @@
 # include <string.h>
 # include <unistd.h>
 # include <pthread.h>
+#ifdef _WIN32
+# include <winsock2.h>
+# include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
+#else
 # include <arpa/inet.h>
+# include <sys/socket.h>
+# include <netinet/in.h>
+#endif
 # include <time.h>
 
 #define PORT 8080
