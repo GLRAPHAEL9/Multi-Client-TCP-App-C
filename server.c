@@ -20,80 +20,70 @@
 #define BUFFER_SIZE 1024
 
 int clients[MAX_CLIENTS];
-char clients_names[MAX_CLIENTS][50];
+char client_names[MAX_CLIENTS][50];
+pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 FILE *log_file;
 
+void send_message(char *message, int sender);
 void *handle_client(void *arg);
-
-// Current time stamp as [HH:MM:SS]
-void get_timestamp(char *buffer, size_t size) {
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
-    strftime(buffer, size, "[%H:%M:%S]", t);
-}
-
-void send_message(char *message, int sender) {
-    char timestamp[20];
-    get_timestamp(timestamp, sizeof(timestamp));
-
-for (int i = 0; i <MAX_CLIENTS; i++) {
-    if (clients[i] != 0 && clients[i] !=sender) {
-        char colored_message[BUFFER_SIZE + 100];
-
-        // Applied Colours for Gabriel and Monique
-        if (strstr(message, "Gabriel:") == message || strstr(message, "Gabriel has") == message) {
-            snprintf(colored_message, sizeof(colored_message), "%s \033[1;34m%s\033[0m", timestamp, message); //Blue
-        } else if (strstr(message, "Monique:") == message || strstr(message, "Monique has") == message) {
-            snprint(colored_message, sizeof(colored_message), "%s \033[1,35m%s\033[0m", timestamp, message); //Purple
-        } else {
-            snprintf(colored_message, sizeof(colored_message), "%s %s", timestamp, message); //Default colour
-        }
-
-        send(clients[i], colored_message, strlen(colored_message), 0);
-    }
-}
-
- // Log to file (plain text, no colors)
-    fprintf(log_file, "%s %s", timestamp, message);
-    fflush(log_file);
-}
-
 
 int main() {
     int server_fd, new_socket;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
 
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_fd == 0) { perror("socket failed"); exit(EXIT_FAILURE); }
+    // Open log file
+    log_file = fopen("chat_log.txt", "a");
+    if (!log_file) {
+        perror("Could not open log file");
+        exit(EXIT_FAILURE);
+    }
+
+    // Create server socket
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
 
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(PORT);
 
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("bind failed"); exit(EXIT_FAILURE);
+        perror("bind failed");
+        exit(EXIT_FAILURE);
     }
 
-    if (listen(server_fd, 3) < 0) { perror("listen failed"); exit(EXIT_FAILURE); }
+    if (listen(server_fd, 3) < 0) {
+        perror("listen failed");
+        exit(EXIT_FAILURE);
+    }
 
-    log_file = fopen("chat_log.txt", "a");
-    if (!log_file) { perror("log file failed"); exit(EXIT_FAILURE); }
-
-    printf("Server listening on port %d...\n", PORT);
+    printf("Server started on port %d...\n", PORT);
 
     while (1) {
         new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen);
-        if (new_socket < 0) { perror("accept failed"); exit(EXIT_FAILURE); }
+        if (new_socket < 0) {
+            perror("accept failed");
+            exit(EXIT_FAILURE);
+        }
 
+        pthread_mutex_lock(&clients_mutex);
         for (int i = 0; i < MAX_CLIENTS; i++) {
             if (clients[i] == 0) {
                 clients[i] = new_socket;
+
+                int *new_client_index = malloc(sizeof(int));
+                *new_client_index = i;
+
                 pthread_t tid;
-                pthread_create(&tid, NULL, handle_client, &clients[i]);
+                pthread_create(&tid, NULL, handle_client, new_client_index);
+                pthread_detach(tid);
                 break;
             }
         }
+        pthread_mutex_unlock(&clients_mutex);
     }
 
     fclose(log_file);
@@ -101,6 +91,75 @@ int main() {
 }
 
 void *handle_client(void *arg) {
-    int sock = *((int *)arg);
+    int index = *((int *)arg);
+    free(arg);
+
+    int sock = clients[index];
     char buffer[BUFFER_SIZE];
     int bytes_read;
+
+    // Receive username
+    bytes_read = recv(sock, buffer, sizeof(buffer)-1, 0);
+    if (bytes_read <= 0) {
+        close(sock);
+        clients[index] = 0;
+        return NULL;
+    }
+    buffer[bytes_read] = '\0';
+    strcpy(client_names[index], buffer);
+
+    // Join message
+    char join_msg[BUFFER_SIZE];
+    snprintf(join_msg, sizeof(join_msg), "%s has joined the chat.\n", client_names[index]);
+    printf("%s", join_msg);
+    fprintf(log_file, "%s", join_msg);
+    fflush(log_file);
+    send_message(join_msg, sock);
+
+    // Chat loop
+    while ((bytes_read = recv(sock, buffer, sizeof(buffer)-1, 0)) > 0) {
+        buffer[bytes_read] = '\0';
+
+        char msg[BUFFER_SIZE + 50];
+        snprintf(msg, sizeof(msg), "%s: %s", client_names[index], buffer);
+        printf("%s", msg);
+
+        fprintf(log_file, "%s", msg);   // log clean text
+        fflush(log_file);
+
+        send_message(msg, sock);
+    }
+
+    // Leave message
+    char leave_msg[BUFFER_SIZE];
+    snprintf(leave_msg, sizeof(leave_msg), "%s has left the chat.\n", client_names[index]);
+    printf("%s", leave_msg);
+    fprintf(log_file, "%s", leave_msg);
+    fflush(log_file);
+    send_message(leave_msg, sock);
+
+    close(sock);
+    clients[index] = 0;   // free slot
+    return NULL;
+}
+
+void send_message(char *message, int sender) {
+    pthread_mutex_lock(&clients_mutex);
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i] != 0 && clients[i] != sender) {
+            char colored_message[BUFFER_SIZE + 100];
+
+            // Color Gabriel blue, Monique purple
+            if (strstr(message, "Gabriel:") == message) {
+                snprintf(colored_message, sizeof(colored_message), "\033[1;34m%s\033[0m", message);
+            } else if (strstr(message, "Monique:") == message) {
+                snprintf(colored_message, sizeof(colored_message), "\033[1;35m%s\033[0m", message);
+            } else {
+                snprintf(colored_message, sizeof(colored_message), "%s", message);
+            }
+
+            send(clients[i], colored_message, strlen(colored_message), 0);
+        }
+    }
+    pthread_mutex_unlock(&clients_mutex);
+}
