@@ -52,4 +52,8 @@ for (int i = 0; i <MAX_CLIENTS; i++) {
         send(clients[i], colored_message, strlen(colored_message), 0);
     }
 }
-      
+
+ // Log to file (plain text, no colors)
+    fprintf(log_file, "%s %s", timestamp, message);
+    fflush(log_file);
+}
