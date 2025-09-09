@@ -17,3 +17,13 @@ SOCKET sock;
 //This is a purple colored username
 char username[] = "\033[35mMonique\033[0m"; 
 
+// Thread to continuously recieve messages from server
+void recieve_messages(void *arg) {
+    char buffer[BUFFER_SIZE];
+    int bytes_read;
+    while ((bytes_read = recv(sock, buffer, sizeof(buffer ) - 1, 0)) > 0) {
+        buffer[bytes_read] = '\0';
+        printf("%s", buffer);  // Prints incoming messages
+        fflush(stdout);
+    }
+}
