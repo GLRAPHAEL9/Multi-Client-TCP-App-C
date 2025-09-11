@@ -41,3 +41,14 @@ int main() {
         printf("socket error\n");
         return 1;
     }
+
+//Setup server address structure for connection to the server
+server_addr.sin_family = AF_INET;
+server_addr.sin_port = htons(PORT);
+server_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); //Localhost
+
+// Connect to the server
+if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+    printf("Connection to the server failed\n");
+    return 1;
+}
