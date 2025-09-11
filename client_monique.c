@@ -27,3 +27,17 @@ void recieve_messages(void *arg) {
         fflush(stdout);
     }
 }
+
+int main() {
+    WSADATA wsa;
+    struct sockaddr_in server_addr; 
+
+    // Initialise Winsock
+    WSAStartup(MAKEWORD(2,2), &wsa);
+
+    // Created socket for client and check for errors.
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == INVALID_SOCKET) { // Checking for errors
+        printf("socket error\n");
+        return 1;
+    }
