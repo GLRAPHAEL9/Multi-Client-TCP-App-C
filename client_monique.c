@@ -52,3 +52,9 @@ if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
     printf("Connection to the server failed\n");
     return 1;
 }
+
+// Send username to the server
+send(sock, username, strlen(username), 0);
+
+//Starting a new thread to handle incoming messages
+_beginthread(recieve_messages, 0, NULL); 

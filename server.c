@@ -19,7 +19,7 @@ char client_names[MAX_CLIENTS][50];
 DWORD WINAPI client_handler(void *client_socket) {
     SOCKET sock = *(SOCKET *)client_socket;
     char buffer[BUFFER_SIZE];
-    int bytes_read;
+    int bytes_read; 
     int index = -1;
 
     // find index
