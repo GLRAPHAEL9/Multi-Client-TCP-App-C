@@ -57,4 +57,15 @@ if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
 send(sock, username, strlen(username), 0);
 
 //Starting a new thread to handle incoming messages
-_beginthread(recieve_messages, 0, NULL); 
+_beginthread(recieve_messages, 0, NULL);
+
+// Main loop: read user input and send to server
+char buffer[BUFFER_SIZE];
+while (fgets(buffer, BUFFER_SIZE, stdin) != NULL) {
+    send(sock, buffer, strlen(buffer), 0);
+}
+
+closesocket(sock);
+WSACleanup();
+return 0;
+}
